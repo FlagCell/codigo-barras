@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -7,6 +6,7 @@
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,6 +31,9 @@
       max-width: 100%;
       max-height: 100%;
     }
+    #pixQR {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -45,6 +48,12 @@
   <div id="etiqueta">
     <canvas id="barcode"></canvas>
   </div>
+
+  <h2>Doação via Pix</h2>
+  <input type="number" id="valorPix" placeholder="Valor da doação (R$)" step="0.01" min="0">
+  <br>
+  <button onclick="gerarPix()">Doar para Juliano</button>
+  <div id="pixQR"></div>
 
   <script>
     function gerarEtiqueta() {
@@ -82,6 +91,27 @@
       link.download = "etiqueta-ean13." + tipo;
       link.href = canvas.toDataURL("image/" + tipo);
       link.click();
+    }
+
+    function gerarPix() {
+      const valor = parseFloat(document.getElementById("valorPix").value || "0").toFixed(2);
+      if (valor <= 0 || isNaN(valor)) {
+        alert("Informe um valor válido para a doação.");
+        return;
+      }
+
+      const chavePix = "julianomarcelo.lima@gmail.com";
+      const nome = "Juliano Lima";
+      const txid = "DOACAO001";
+
+      const emv = `00020126580014BR.GOV.BCB.PIX0114${chavePix}520400005303986540${valor}5802BR5912${nome}62140513${txid}6304`;
+
+      const qrDiv = document.getElementById("pixQR");
+      qrDiv.innerHTML = "";
+      QRCode.toCanvas(document.createElement('canvas'), emv, { width: 200 }, function (err, canvas) {
+        if (err) console.error(err);
+        qrDiv.appendChild(canvas);
+      });
     }
   </script>
 </body>
