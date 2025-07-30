@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiqueta Única EAN-13</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px;
+    }
+    #etiqueta {
+      width: 85mm;
+      height: 45mm;
+      border: 1px solid #000;
+      margin: 20px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Etiqueta Única (4,5cm x 8,5cm)</h1>
+  <input type="text" id="codigo" maxlength="13" placeholder="Digite o código EAN-13">
+  <br>
+  <button onclick="gerarEtiqueta()">Gerar etiqueta</button>
+  <button onclick="gerarPDF()">Salvar como PDF</button>
+  <button onclick="salvarImagem('png')">Salvar como PNG</button>
+  <button onclick="salvarImagem('jpeg')">Salvar como JPEG</button>
+
+  <div id="etiqueta">
+    <canvas id="barcode"></canvas>
+  </div>
+
+  <script>
+    function gerarEtiqueta() {
+      const codigo = document.getElementById("codigo").value.trim();
+      if (!/^\d{13}$/.test(codigo)) {
+        alert("Digite um código EAN-13 válido.");
+        return;
+      }
+      const canvas = document.getElementById("barcode");
+      JsBarcode(canvas, codigo, {
+        format: "EAN13",
+        width: 2,
+        height: 60,
+        fontSize: 16,
+        displayValue: true,
+        margin: 5
+      });
+    }
+
+    function gerarPDF() {
+      const element = document.getElementById("etiqueta");
+      const opt = {
+        margin: 0,
+        filename: "etiqueta-ean13.pdf",
+        image: { type: "jpeg", quality: 1 },
+        html2canvas: { scale: 4 },
+        jsPDF: { unit: "mm", format: [85, 45], orientation: "landscape" }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    function salvarImagem(tipo) {
+      const canvas = document.getElementById("barcode");
+      const link = document.createElement("a");
+      link.download = "etiqueta-ean13." + tipo;
+      link.href = canvas.toDataURL("image/" + tipo);
+      link.click();
+    }
+  </script>
+</body>
+</html>
