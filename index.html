@@ -1,12 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>Etiqueta Única EAN-13</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <title>Doação via Pix - Juliano Lima</title>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     body {
@@ -19,101 +15,94 @@
       padding: 10px;
       margin: 10px;
     }
-    #etiqueta {
-      width: 85mm;
-      height: 45mm;
-      border: 1px solid #000;
-      margin: 20px auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    canvas {
-      max-width: 100%;
-      max-height: 100%;
-    }
-    #pixQR {
+    #qr {
       margin-top: 20px;
+    }
+    #emv {
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid #ccc;
+      padding: 10px;
+      font-family: monospace;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>Etiqueta Única (4,5cm x 8,5cm)</h1>
-  <input type="text" id="codigo" maxlength="13" placeholder="Digite o código EAN-13">
-  <br>
-  <button onclick="gerarEtiqueta()">Gerar etiqueta</button>
-  <button onclick="gerarPDF()">Salvar como PDF</button>
-  <button onclick="salvarImagem('png')">Salvar como PNG</button>
-  <button onclick="salvarImagem('jpeg')">Salvar como JPEG</button>
 
-  <div id="etiqueta">
-    <canvas id="barcode"></canvas>
-  </div>
+  <h1>Doação via Pix</h1>
+  <p>Destinatário: <strong>Juliano Lima</strong></p>
 
-  <h2>Doação via Pix</h2>
-  <input type="number" id="valorPix" placeholder="Valor da doação (R$)" step="0.01" min="0">
+  <input type="number" id="valor" placeholder="Digite o valor (opcional)" step="0.01" min="0">
   <br>
-  <button onclick="gerarPix()">Doar para Juliano</button>
-  <div id="pixQR"></div>
+  <button onclick="gerarPix()">Gerar QR Code e EMV</button>
+
+  <div id="qr"></div>
+
+  <h3>Pix Copia e Cola (EMV)</h3>
+  <pre id="emv"></pre>
+  <button onclick="copiarEmv()">Copiar EMV</button>
 
   <script>
-    function gerarEtiqueta() {
-      const codigo = document.getElementById("codigo").value.trim();
-      if (!/^\d{13}$/.test(codigo)) {
-        alert("Digite um código EAN-13 válido.");
-        return;
+    function format(id, content) {
+      return id + content.length.toString().padStart(2, '0') + content;
+    }
+
+    function crc16(str) {
+      let crc = 0xFFFF;
+      for (let i = 0; i < str.length; i++) {
+        crc ^= str.charCodeAt(i) << 8;
+        for (let j = 0; j < 8; j++) {
+          if ((crc & 0x8000) !== 0) {
+            crc = (crc << 1) ^ 0x1021;
+          } else {
+            crc <<= 1;
+          }
+          crc &= 0xFFFF;
+        }
       }
-      const canvas = document.getElementById("barcode");
-      JsBarcode(canvas, codigo, {
-        format: "EAN13",
-        width: 2,
-        height: 60,
-        fontSize: 16,
-        displayValue: true,
-        margin: 5
-      });
-    }
-
-    function gerarPDF() {
-      const element = document.getElementById("etiqueta");
-      const opt = {
-        margin: 0,
-        filename: "etiqueta-ean13.pdf",
-        image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 4 },
-        jsPDF: { unit: "mm", format: [85, 45], orientation: "landscape" }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-
-    function salvarImagem(tipo) {
-      const canvas = document.getElementById("barcode");
-      const link = document.createElement("a");
-      link.download = "etiqueta-ean13." + tipo;
-      link.href = canvas.toDataURL("image/" + tipo);
-      link.click();
+      return crc.toString(16).toUpperCase().padStart(4, '0');
     }
 
     function gerarPix() {
-      const valor = parseFloat(document.getElementById("valorPix").value || "0").toFixed(2);
-      if (valor <= 0 || isNaN(valor)) {
-        alert("Informe um valor válido para a doação.");
-        return;
-      }
-
-      const chavePix = "julianomarcelo.lima@gmail.com";
+      const valor = parseFloat(document.getElementById("valor").value || "").toFixed(2);
+      const chave = "julianomarcelo.lima@gmail.com";
       const nome = "Juliano Lima";
+      const cidade = "RIO DE JANEIRO";
       const txid = "DOACAO001";
 
-      const emv = `00020126580014BR.GOV.BCB.PIX0114${chavePix}520400005303986540${valor}5802BR5912${nome}62140513${txid}6304`;
+      const gui = format("00", "01");
+      const chavePix = format("01", chave);
+      const merchantAccount = format("26", format("00", "BR.GOV.BCB.PIX") + chavePix);
+      const mcc = format("52", "0000");
+      const currency = format("53", "986");
+      const amount = valor > 0 ? format("54", valor) : "";
+      const country = format("58", "BR");
+      const receiver = format("59", nome);
+      const city = format("60", cidade);
+      const txidField = format("62", format("05", txid));
 
-      const qrDiv = document.getElementById("pixQR");
+      const payloadSemCRC = gui + merchantAccount + mcc + currency + amount + country + receiver + city + txidField + "6304";
+      const crc = crc16(payloadSemCRC);
+      const payloadCompleto = payloadSemCRC + crc;
+
+      document.getElementById("emv").textContent = payloadCompleto;
+
+      const qrDiv = document.getElementById("qr");
       qrDiv.innerHTML = "";
-      QRCode.toCanvas(document.createElement('canvas'), emv, { width: 200 }, function (err, canvas) {
+      QRCode.toCanvas(payloadCompleto, { width: 256 }, function (err, canvas) {
         if (err) console.error(err);
         qrDiv.appendChild(canvas);
       });
     }
+
+    function copiarEmv() {
+      const emvText = document.getElementById("emv").textContent;
+      navigator.clipboard.writeText(emvText).then(() => {
+        alert("EMV copiado para a área de transferência!");
+      });
+    }
   </script>
+
 </body>
 </html>
